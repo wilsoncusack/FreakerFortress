@@ -75,6 +75,31 @@ describe("FreakerFortress contract", function () {
 		});
 	});
 
+	describe("withdrawFreaker", function () {
+		it("does not allow if does not own freaker", async function(){
+			await EtherFreakers.connect(addr2).birth({value: Math.pow(10, 18) + ""})
+			await EtherFreakers.connect(addr2).approve(Fortress.address, "8")
+
+			await Fortress.connect(addr2).depositFreaker(addr2.address, "8", {value: Math.pow(10, 17) + ""})
+			await expect(
+				Fortress.connect(addr1).withdrawFreaker(addr1.address, "8")
+				).to.be.revertedWith("FreakerFortress: caller is not owner nor approved")
+		});
+
+		it("transfers to caller", async function(){
+			await EtherFreakers.connect(addr2).birth({value: Math.pow(10, 18) + ""})
+			await EtherFreakers.connect(addr2).approve(Fortress.address, "8")
+
+			await Fortress.connect(addr2).depositFreaker(addr2.address, "8", {value: Math.pow(10, 17) + ""})
+			await expect(
+				Fortress.connect(addr2).withdrawFreaker(addr2.address, "8")
+				).to.not.be.reverted
+
+			const owner = await EtherFreakers.ownerOf("8")
+			expect(owner).to.equal(addr2.address)
+		});
+	})
+
 	describe("remoteAttack", function () {
 		it("attacks", async function(){
 
@@ -103,11 +128,46 @@ describe("FreakerFortress contract", function () {
 			await expect(
 				await Fortress.connect(addr1).remoteAttack(["12", "9", "10", "11"], "9", "8", {value: Math.pow(10, 18) + ""})
 			).to.emit(EtherFreakers, "Captured")
-			 
-		
 
+			const owner = await EtherFreakers.ownerOf("8")
+			expect(owner).to.equal(Fortress.address)
 
+			const ownerInFortress = await Fortress.ownerOf("8")
+			expect(ownerInFortress).to.equal(addr1.address)
+		});
 
+		it("attacks at lower gas", async function(){
+
+			await Fortress.connect(addr2).createAttackContract()
+			// #8
+			await EtherFreakers.connect(addr3).birth({value: Math.pow(10, 15) + ""})
+			// #9
+			await EtherFreakers.connect(addr2).birth({value: ethers.BigNumber.from("10").pow("20")})
+			
+			await EtherFreakers.connect(addr2).approve(Fortress.address, "9")
+			await Fortress.connect(addr2).depositFreaker(addr2.address, "9", {value: Math.pow(10, 17) + ""})
+
+			await expect(
+				await Fortress.connect(addr1).remoteAttack(["9"], "9", "8", {value: Math.pow(10, 18) + ""})
+			).to.emit(EtherFreakers, "Captured")
+		});
+
+		it("returns the freaker", async function(){
+
+			await Fortress.connect(addr2).createAttackContract()
+			// #8
+			await EtherFreakers.connect(addr3).birth({value: Math.pow(10, 15) + ""})
+			// #9
+			await EtherFreakers.connect(addr2).birth({value: ethers.BigNumber.from("10").pow("20")})
+			
+			await EtherFreakers.connect(addr2).approve(Fortress.address, "9")
+			await Fortress.connect(addr2).depositFreaker(addr2.address, "9", {value: Math.pow(10, 17) + ""})
+
+			await Fortress.connect(addr1).remoteAttack(["9"], "9", "8", {value: Math.pow(10, 18) + ""})
+
+			const owner = await EtherFreakers.ownerOf("9")
+			expect(owner).to.equal(Fortress.address)
+			
 		});
 	});
 

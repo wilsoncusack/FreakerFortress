@@ -1,12 +1,12 @@
 pragma solidity ^0.8.2;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "./EtherFreakers.sol";
 import "./FreakerAttack.sol";
 
 
-contract FreakerFortress is ERC721, IERC721Receiver {
+contract FreakerFortress is ERC721, ERC721Holder {
 
 	address public manager;
 	uint128 public joinFeeWei = 1e17;
@@ -44,29 +44,20 @@ contract FreakerFortress is ERC721, IERC721Receiver {
         _safeMint(mintTo, freakerID, "");
     }
 
-
     function withdrawFreaker(address to, uint128 freakerID) payable external ownerOrApproved(freakerID) {
         _burn(freakerID);
         EtherFreakers(etherFreakersAddress).safeTransferFrom(address(this), to, freakerID);
     }
 
-    // NOTE: will not work if fortress has elightenment. Use remoteAttack
-    function attack(uint128 sourceId, uint128 targetId) public ownerOrApproved(sourceId) returns (bool) {
-        require(!EtherFreakers(etherFreakersAddress).isEnlightened(targetId), "FreakerFortress: target is enlightened");
-        bool success = EtherFreakers(etherFreakersAddress).attack(sourceId, targetId);
-        if(success){
-        	_safeMint(msg.sender, targetId, "");
-        }
-        return success;
-    }
-    
 
     function discharge(uint128 freakerID, uint128 amount) public ownerOrApproved(freakerID) {
-        address owner = ownerOf(freakerID);
+        require(EtherFreakers(etherFreakersAddress).ownerOf(freakerID) == address(this), "FreakerFortress: Fortress does not own token");
         // calculate what the contract will be paid before we call
         uint128 energy = EtherFreakers(etherFreakersAddress).energyOf(freakerID);
         uint128 capped = amount > energy ? energy : amount;
         EtherFreakers(etherFreakersAddress).discharge(freakerID, amount);
+        // pay owner 
+        address owner = ownerOf(freakerID);
         payable(owner).transfer(capped);
     }
 
@@ -90,10 +81,6 @@ contract FreakerFortress is ERC721, IERC721Receiver {
 
     function tokenURI(uint256 tokenID) public view virtual override returns (string memory) {
         return EtherFreakers(etherFreakersAddress).tokenURI(tokenID);
-    }
-
-    function onERC721Received(address from, address to, uint256 freakerID, bytes memory) public virtual override returns (bytes4) {
-        return this.onERC721Received.selector;
     }
 
     // this is to handle tokens sent to the contract 
