@@ -200,4 +200,12 @@ describe("FreakerFortress contract", function () {
 		// });
 	})
 
+	describe("updateJoinFee", function () {
+		it("does not allow non manager to call", async function(){
+			await expect(
+				Fortress.connect(addr1).updateJoinFee(54)
+				).to.be.revertedWith("FreakerFortress: caller is not owner nor approved")
+		})
+	})
+
 });

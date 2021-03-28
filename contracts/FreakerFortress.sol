@@ -90,7 +90,8 @@ contract FreakerFortress is ERC721, ERC721Holder {
     	_safeMint(to, freakerID, "");
     }
 
-    // remote attack 
+    // these methods allow someone to pay to have members of the fortress 
+    // attack a target
 
     function createAttackContract() external {
     	require(attackContract == address(0), "FreakerFortress: attack contract already exists");
@@ -127,6 +128,10 @@ contract FreakerFortress is ERC721, ERC721Holder {
 
     function updateMaxRemoteAttackers(uint8 count) external managerOnly {
         maxRemoteAttackers = count;
+    }
+
+    function payManager(uint256 amount) external managerOnly {
+        payable(manager).transfer(amount);
     }
 
 
