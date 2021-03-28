@@ -140,7 +140,7 @@ describe("FreakerFortress contract", function () {
 
 			await Fortress.connect(addr2).createAttackContract()
 			// #8
-			await EtherFreakers.connect(addr3).birth({value: Math.pow(10, 15) + ""})
+			await EtherFreakers.connect(addr3).birth({value: Math.pow(10, 13) + ""})
 			// #9
 			await EtherFreakers.connect(addr2).birth({value: ethers.BigNumber.from("10").pow("20")})
 			

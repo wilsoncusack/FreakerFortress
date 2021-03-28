@@ -33,6 +33,7 @@ contract FreakerFortress is ERC721, ERC721Holder {
 
     function depositFreaker(address mintTo, uint128 freakerID) payable external {
         require(msg.value >= joinFeeWei, "FreakerFortress: Join fee too low");
+        depositFreakerFree(mintTo, freakerID)
         EtherFreakers(etherFreakersAddress).transferFrom(msg.sender, address(this), freakerID);
         _safeMint(mintTo, freakerID, "");
     }
@@ -51,7 +52,6 @@ contract FreakerFortress is ERC721, ERC721Holder {
 
 
     function discharge(uint128 freakerID, uint128 amount) public ownerOrApproved(freakerID) {
-        require(EtherFreakers(etherFreakersAddress).ownerOf(freakerID) == address(this), "FreakerFortress: Fortress does not own token");
         // calculate what the contract will be paid before we call
         uint128 energy = EtherFreakers(etherFreakersAddress).energyOf(freakerID);
         uint128 capped = amount > energy ? energy : amount;
@@ -66,7 +66,7 @@ contract FreakerFortress is ERC721, ERC721Holder {
     }
 
     function tap(uint128 creatorId) public {
-    	require(EtherFreakers(etherFreakersAddress).ownerOf(creatorId) == address(this), "FreakerFortress: Fortress does not own token");
+        require(_exists(creatorId), "FreakerFortress: fortress does not own creator");
     	// calculate how much will be paid to the fortress
         uint128 basic;
         uint128 index;
@@ -98,7 +98,7 @@ contract FreakerFortress is ERC721, ERC721Holder {
     	attackContract = address(new FreakerAttack(address(this), etherFreakersAddress)); 
     }
 
-    function remoteAttack(uint128[] calldata freakers, uint128 sourceId, uint128 targetId) external payable returns(bool) {
+    function remoteAttack(uint128[] calldata freakers, uint128 sourceId, uint128 targetId) external payable returns(bool response) {
     	require(msg.value >= attackFeeWei, "FreakerFortress: Attack fee too low");
         require(attackContract != address(0), "FreakerFortress: attack contract does not exist");
     	require(EtherFreakers(etherFreakersAddress).ownerOf(targetId) != address(this), "FreakerFortress: cannot attack freak in fortress");
@@ -107,9 +107,8 @@ contract FreakerFortress is ERC721, ERC721Holder {
     	for(uint i=0; i < freakers.length; i++){
 			EtherFreakers(etherFreakersAddress).transferFrom(address(this), attackContract, freakers[i]);
 		}
-		bool response = FreakerAttack(attackContract).attack(msg.sender, sourceId, targetId);
+		response = FreakerAttack(attackContract).attack(msg.sender, sourceId, targetId);
 		FreakerAttack(attackContract).sendBack(freakers);
-		return response;
     }
 
     // owner methods
