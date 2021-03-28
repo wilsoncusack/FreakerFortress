@@ -4,16 +4,16 @@ import "./EtherFreakers.sol";
 import "./FreakerFortress.sol";
 
 contract FreakerAttack {
-	address public owner;
+	address payable public owner;
 	address public etherFreakersAddress;
 
-	constructor(address creator, address _etherFreakersAddress) {
+	constructor(address payable creator, address _etherFreakersAddress) {
 		owner = creator;
 		etherFreakersAddress = _etherFreakersAddress;
 
 	}
 
-	function attack(address onBehalfOf, uint128 sourceId, uint128 targetId) external returns (bool) {
+	function attack(address payable onBehalfOf, uint128 sourceId, uint128 targetId) external returns (bool) {
 		require(msg.sender == owner, "FreakerAttack: Only owner");
 		require(address(this) == EtherFreakers(etherFreakersAddress).ownerOf(sourceId), "FreakerAttack: does not own sourceId");
 		bool success = EtherFreakers(etherFreakersAddress).attack(sourceId, targetId);

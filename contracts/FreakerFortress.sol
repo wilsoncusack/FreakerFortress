@@ -30,28 +30,26 @@ contract FreakerFortress is ERC721, ERC721Holder {
     	_; 
     }
     
-
-    function depositFreaker(address mintTo, uint128 freakerID) payable external {
+    function depositFreaker(address payable mintTo, uint128 freakerID) payable external {
         require(msg.value >= joinFeeWei, "FreakerFortress: Join fee too low");
-        depositFreakerFree(mintTo, freakerID)
         EtherFreakers(etherFreakersAddress).transferFrom(msg.sender, address(this), freakerID);
         _safeMint(mintTo, freakerID, "");
     }
 
     // attack contract only 
-    function depositFreakerFree(address mintTo, uint128 freakerID) payable external {
+    function depositFreakerFree(address payable mintTo, uint128 freakerID) payable external {
         require(msg.sender == attackContract, "FreakerFortress: Attack contract only");
         EtherFreakers(etherFreakersAddress).transferFrom(msg.sender, address(this), freakerID);
         _safeMint(mintTo, freakerID, "");
     }
 
     function withdrawFreaker(address to, uint128 freakerID) payable external ownerOrApproved(freakerID) {
-        _burn(freakerID);
         EtherFreakers(etherFreakersAddress).safeTransferFrom(address(this), to, freakerID);
+        _burn(freakerID);
     }
 
-
-    function discharge(uint128 freakerID, uint128 amount) public ownerOrApproved(freakerID) {
+    function discharge(uint128 freakerID, uint128 amount) public {
+        require(ownerOf(freakerID) == msg.sender, "FreakerFortress: only owner");
         // calculate what the contract will be paid before we call
         uint128 energy = EtherFreakers(etherFreakersAddress).energyOf(freakerID);
         uint128 capped = amount > energy ? energy : amount;
@@ -64,20 +62,6 @@ contract FreakerFortress is ERC721, ERC721Holder {
     function charge(uint128 freakerID) payable ownerOrApproved(freakerID) public {
        EtherFreakers(etherFreakersAddress).charge{value: msg.value}(freakerID);
     }
-
-    function tap(uint128 creatorId) public {
-        require(_exists(creatorId), "FreakerFortress: fortress does not own creator");
-    	// calculate how much will be paid to the fortress
-        uint128 basic;
-        uint128 index;
-        (basic, index) = EtherFreakers(etherFreakersAddress).energyBalances(creatorId);
-        uint128 unclaimed = EtherFreakers(etherFreakersAddress).creatorIndex() - index;
-        EtherFreakers(etherFreakersAddress).tap(creatorId);
-        // pay to the token holder in the fortress
-        address owner = ownerOf(creatorId);
-        payable(owner).transfer(unclaimed);
-    }
-
 
     function tokenURI(uint256 tokenID) public view virtual override returns (string memory) {
         return EtherFreakers(etherFreakersAddress).tokenURI(tokenID);
@@ -95,7 +79,7 @@ contract FreakerFortress is ERC721, ERC721Holder {
 
     function createAttackContract() external {
     	require(attackContract == address(0), "FreakerFortress: attack contract already exists");
-    	attackContract = address(new FreakerAttack(address(this), etherFreakersAddress)); 
+    	attackContract = address(new FreakerAttack(payable(address(this)), etherFreakersAddress)); 
     }
 
     function remoteAttack(uint128[] calldata freakers, uint128 sourceId, uint128 targetId) external payable returns(bool response) {
@@ -107,7 +91,7 @@ contract FreakerFortress is ERC721, ERC721Holder {
     	for(uint i=0; i < freakers.length; i++){
 			EtherFreakers(etherFreakersAddress).transferFrom(address(this), attackContract, freakers[i]);
 		}
-		response = FreakerAttack(attackContract).attack(msg.sender, sourceId, targetId);
+		response = FreakerAttack(attackContract).attack(payable(msg.sender), sourceId, targetId);
 		FreakerAttack(attackContract).sendBack(freakers);
     }
 
@@ -130,8 +114,13 @@ contract FreakerFortress is ERC721, ERC721Holder {
     }
 
     function payManager(uint256 amount) external managerOnly {
+        require(amount <= address(this).balance, "FreakerFortress:  amount  too high");
         payable(manager).transfer(amount);
     }
 
+    // payable
 
+    receive() payable external {
+        // nothing to do
+    }
 }

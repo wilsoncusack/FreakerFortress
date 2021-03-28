@@ -1,5 +1,7 @@
 
 const { expect } = require("chai");
+const { waffle } = require("hardhat");
+const provider = waffle.provider;
 
 describe("FreakerFortress contract", function () {
 
@@ -126,14 +128,24 @@ describe("FreakerFortress contract", function () {
 			await Fortress.connect(addr2).depositFreaker(addr2.address, "11", {value: Math.pow(10, 17) + ""})
 			
 			await expect(
-				await Fortress.connect(addr1).remoteAttack(["12", "9", "10", "11"], "9", "8", {value: Math.pow(10, 18) + ""})
+				Fortress.connect(addr1).remoteAttack(["12", "9", "10", "11"], "9", "8", {value: Math.pow(10, 18) + ""})
 			).to.emit(EtherFreakers, "Captured")
 
-			const owner = await EtherFreakers.ownerOf("8")
+			var owner = await EtherFreakers.ownerOf("8")
 			expect(owner).to.equal(Fortress.address)
 
 			const ownerInFortress = await Fortress.ownerOf("8")
 			expect(ownerInFortress).to.equal(addr1.address)
+
+			// reeturns 
+			owner = await EtherFreakers.ownerOf("9")
+			expect(owner).to.equal(Fortress.address)
+			owner = await EtherFreakers.ownerOf("10")
+			expect(owner).to.equal(Fortress.address)
+			owner = await EtherFreakers.ownerOf("11")
+			expect(owner).to.equal(Fortress.address)
+			owner = await EtherFreakers.ownerOf("12")
+			expect(owner).to.equal(Fortress.address)
 		});
 
 		it("attacks at lower gas", async function(){
@@ -148,7 +160,7 @@ describe("FreakerFortress contract", function () {
 			await Fortress.connect(addr2).depositFreaker(addr2.address, "9", {value: Math.pow(10, 17) + ""})
 
 			await expect(
-				await Fortress.connect(addr1).remoteAttack(["9"], "9", "8", {value: Math.pow(10, 18) + ""})
+				Fortress.connect(addr1).remoteAttack(["9"], "9", "8", {value: Math.pow(10, 18) + ""})
 			).to.emit(EtherFreakers, "Captured")
 		});
 
@@ -169,6 +181,38 @@ describe("FreakerFortress contract", function () {
 			expect(owner).to.equal(Fortress.address)
 			
 		});
+
+		it("fails if you pass too many freakers", async function(){
+			await Fortress.connect(addr2).createAttackContract()
+			// #8
+			await EtherFreakers.connect(addr3).birth({value: Math.pow(10, 15) + ""})
+			// #9
+			await EtherFreakers.connect(addr2).birth({value: Math.pow(10, 16) + ""})
+			// #10
+			await EtherFreakers.connect(addr2).birth({value: Math.pow(10, 17) + ""})
+			// #11
+			await EtherFreakers.connect(addr2).birth({value: Math.pow(10, 18) + ""})
+			// #12
+			await EtherFreakers.connect(addr2).birth({value: Math.pow(10, 19) + ""})
+			// #13
+			await EtherFreakers.connect(addr2).birth({value: Math.pow(10, 19) + ""})
+
+			
+			await EtherFreakers.connect(addr2).approve(Fortress.address, "9")
+			await EtherFreakers.connect(addr2).approve(Fortress.address, "10")
+			await EtherFreakers.connect(addr2).approve(Fortress.address, "11")
+			await EtherFreakers.connect(addr2).approve(Fortress.address, "12")
+			await EtherFreakers.connect(addr2).approve(Fortress.address, "13")
+			
+			await Fortress.connect(addr2).depositFreaker(addr2.address, "9", {value: Math.pow(10, 17) + ""})
+			await Fortress.connect(addr2).depositFreaker(addr2.address, "10", {value: Math.pow(10, 17) + ""})
+			await Fortress.connect(addr2).depositFreaker(addr2.address, "11", {value: Math.pow(10, 17) + ""})
+			await Fortress.connect(addr2).depositFreaker(addr2.address, "12", {value: Math.pow(10, 17) + ""})
+			
+			await expect(
+				Fortress.connect(addr1).remoteAttack(["12", "9", "10", "11", "13"], "9", "8", {value: Math.pow(10, 18) + ""})
+			).to.be.revertedWith("FreakerFortress: too many attackers")
+		})
 	});
 
 	describe("claimToken", function () {
@@ -205,6 +249,40 @@ describe("FreakerFortress contract", function () {
 			await expect(
 				Fortress.connect(addr1).updateJoinFee(54)
 				).to.be.revertedWith("FreakerFortress: caller is not owner nor approved")
+		})
+
+		it("updates join fee", async function(){
+			const newFee =Math.pow(10, 18) + ""
+			// const newFee = ethers.BigNumber.from(10).pow(20)
+			await Fortress.connect(addr2).updateJoinFee(Math.pow(10, 18) + "")
+			const fee = await Fortress.connect(addr2).joinFeeWei()
+			expect(fee).to.equal(newFee) 
+				
+		})
+	})
+
+	describe("receivingETH", function () {
+
+		it("receives eth", async function (){
+			await addr1.sendTransaction({to: Fortress.address, value: 200})
+
+			const balance = await provider.getBalance(Fortress.address)
+			expect(balance.toString()).to.equal("200")
+		})
+	})
+
+	describe("payManager", function () {
+
+		it("pays ETH", async function (){
+			await addr1.sendTransaction({to: Fortress.address, value: 200})
+			const beforeBalance = await provider.getBalance(addr2.address)
+
+			await expect (
+				Fortress.connect(addr2).payManager(200)
+				).not.to.be.reverted
+
+			const afterBalance = await provider.getBalance(addr2.address)
+			expect(afterBalance.toString()).to.equal(beforeBalance.add(200).toString())
 		})
 	})
 
